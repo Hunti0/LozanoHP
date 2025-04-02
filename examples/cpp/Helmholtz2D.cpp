@@ -1,40 +1,58 @@
 #include <iostream>
-#include <vector>
-#include <cmath>
-#include "mole.h" 
+#include <armadillo>
+#include "mole.h"
+
+using namespace std:
+using namepace arma;
+
 int main() {
-    
-const double aa = 0.7;   // Wall reflection coefficient
-const double bb = 0.9 * 0.5;  // Wall absorption coefficient
-const double wn = 6.0;   // Angular wave number
+    double a = 0.0; // west
+    double b = 40.0; // east
+    double c = 0.0; // south
+    double d = 40.0; // north
+// Grid resolution
+int k = 2; //order of accuracy
+int m = 500; // grid points along x
+int n = 500 // grid points along y
+double dx = (b - a) / m; //Grid spacing in x
+double dy = (d - c) / n //Grid spacing in y
 
- //Spatial Discretization
-const int k = 2;  // Order of accuracy
-const int m = 500, n = 500;  // Grid resolution
-const double a = 0, b = 40;  // X domain
-const double c = 0, d = 40;  // Y domain
-const double dx = (b - a) / m; // Grid spacing
-const double dy = (d - c) / n;  // Grid spacing
+// Wave properties
+double wn = 6.0; // Wave number
+double aa = 0.7; // Reflection coefficient
+double bb = 0.9 * 0.5; // Absorbtion coefficient
 
-// Hotspot location
-const double hsx = 2.0;
-const double hsy = 10.0;
-const double hsr = 1.0;
+// Hot Spot position
+double hsx = 2.0; 
+double hsy = 10.0;
+double hsr = 1.0;
 
-bool isWall(double x, double y) {
-    return ((x >= 10.0 && x <= 39.0 && y >= 20.0 && y <= 21.0) ||
-            (x >= 30.0 && x <= 31.0 && y >= 1.0 && y <= 16.0) ||
-            (x <= 0.5 || x >= 39.5 || y <= 0.5 || y >= 39.5));
-}
+// Define the Walls
+mat wall = ( (X >= 10.0 && X <= 39.0 && Y >= 20.0 && Y <= 21.0) ||
+                 (X >= 30.0 && X <= 31.0 && Y >= 1.0 && Y <= 16.0) ||
+                 (X <= 0.5 || X >= 39.5 || Y <= 0.5 || Y >= 39.5) );
 
-bool isHotspot(double x, double y) {
-    return ((x - hsx) * (x - hsx) + (y - hsy) * (y - hsy) < hsr * hsr);
-}
+// 2D Staggered Grid
+vec xgrid = linspace(a, b, m + 2);
+vec ygrid = linspace(c, d, n + 2);
+
+mat X, Y;
+
+Util utils;
+utils.mechgrid(xgrid, ygrid, X, Y);
+
+// Create Complex Coefficient c = k^2/n^2
+mat ce = (wn * wn) / pow(1+ (aa + cx_double(0, bb)) * wall, 2);
+vec ce_vec = vectorise(ce) // Converting to 1D vector to solve
+
+// Detect hostpot position
+mat HS = (square(X- hsx) + square(Y - hsy) < hsr * hsr);
+vec HS_vec = vectorise(HS); // Convert to 1D vector
+uvec ind = find(HS_vec > 0);
+uvec freenodes =  regenspace<uvec>(0, (m+2) * (n+2) - 1);
+freenodes.shed_rows(ind);
+
+// Mimetic Laplacian Operator
+Laplacian2D L (k, m , dx, n, dy);
 
 
-  Lap2D L(k, grid);
-   
-
-
-    return 0;
-}
