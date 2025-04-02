@@ -25,7 +25,8 @@ int main() {
     for (int i = 2; i <= m; i++) {
         grid(i) = grid(i - 1) + dx;
     }
-
+    grid(m+1) = east;
+    
     BC1D periodicBC(k, m, 1, 1, 0); // Create Boundary Conditions
 
      mat D = -a * dt * 2  * Div * Inter
