@@ -1,9 +1,9 @@
 #include <iostream>
 #include <vector>
-#include <Eigen/Sparse>
 #include <cmath>
 #include "mole.h" 
-
+int main() {
+    
 using namespace std;
 using namespace Eigen;
 
@@ -30,10 +30,8 @@ bool isHotspot(double x, double y) {
     return ((x - hsx) * (x - hsx) + (y - hsy) * (y - hsy) < hsr * hsr);
 }
 
-int main() {
 
-
-    Lap2D L(k, grid);
+  Lap2D L(k, grid);
    
 
 
