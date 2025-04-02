@@ -1,0 +1,69 @@
+#include <iostream>
+#include <vector>
+#include <Eigen/Sparse>
+#include <cmath>
+#include "mole.h" 
+
+using namespace std;
+using namespace Eigen;
+
+const double aa = 0.7;   // Wall reflection coefficient
+const double bb = 0.9 * 0.5;  // Wall absorption coefficient
+const double wn = 6.0;   // Angular wave number
+
+const int k = 2;  // Order of accuracy
+const int m = 500, n = 500;  // Grid resolution
+const double a = 0, b = 40;  // X domain
+const double c = 0, d = 40;  // Y domain
+const double dx = (b - a) / m, dy = (d - c) / n;  // Grid spacing
+
+// Hotspot location
+const double hsx = 2.0, hsy = 10.0, hsr = 1.0;
+
+bool isWall(double x, double y) {
+    return ((x >= 10.0 && x <= 39.0 && y >= 20.0 && y <= 21.0) ||
+            (x >= 30.0 && x <= 31.0 && y >= 1.0 && y <= 16.0) ||
+            (x <= 0.5 || x >= 39.5 || y <= 0.5 || y >= 39.5));
+}
+
+bool isHotspot(double x, double y) {
+    return ((x - hsx) * (x - hsx) + (y - hsy) * (y - hsy) < hsr * hsr);
+}
+
+int main() {
+
+
+    Lap2D L(k, grid);
+   
+    vector<double> coeff((m+2)*(n+2), 0.0);
+    vector<int> hotspot_nodes;
+    for (int i = 0; i < grid.numNodes(); ++i) {
+        double x = grid.x(i), y = grid.y(i);
+        if (isWall(x, y)) {
+            coeff[i] = pow(wn / (1 + (aa + 1i * bb)), 2);
+        } else {
+            coeff[i] = pow(wn, 2);
+        }
+        if (isHotspot(x, y)) {
+            hotspot_nodes.push_back(i);
+        }
+    }
+
+    // Convert coefficient to a diagonal matrix
+    SparseMatrix<double> C(grid.numNodes(), grid.numNodes());
+    for (int i = 0; i < grid.numNodes(); ++i) {
+        C.insert(i, i) = coeff[i];
+    }
+
+    RobinBC2D robinBC(k, grid, 0, 1);
+
+    VectorXd RHS = VectorXd::Zero(grid.numNodes());
+    for (int idx : hotspot_nodes) {
+        RHS(idx) = -L_total.row(idx).sum();
+    }
+
+    VectorXd SOL = VectorXd::Zero(grid.numNodes());
+
+
+    return 0;
+}
