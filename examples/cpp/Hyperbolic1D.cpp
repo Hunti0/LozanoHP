@@ -16,23 +16,19 @@ int main() {
 
     Div = D(k, m, dx);
     Inter = I(m, 0.5);
-     //grid 
-    BC1D periodicBC(k, m, 1, 1, 0);
+     
+    vec grid(m + 2); //1D Staggered Grid
+    grid(0) = west;
+    grid(1) = west + dx / 2.0;
+
+    
+    for (int i = 2; i <= m; i++) {
+        grid(i) = grid(i - 1) + dx;
+    }
+
+    BC1D periodicBC(k, m, 1, 1, 0); // Create Boundary Conditions
 
      mat D = -a * dt * 2  * Div * Inter
 
-     vector<double> U(m), U2(m), U3(m);
-    for (int i = 0; i < m; ++i) {
-        double x = grid.x(i);
-        U[i] = sin(2 * M_PI * x); // Initial condition
-    }
-
-    U2 = U + 0.5 * (Div * U)
-
-    for (double t = dt; t<= t_final; t += dt) {
-        U3 = U + (D * U2);
-        U = U2;
-        U2 = U3;
-        
     return 0;
 }
