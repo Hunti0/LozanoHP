@@ -35,34 +35,6 @@ int main() {
 
     Lap2D L(k, grid);
    
-    vector<double> coeff((m+2)*(n+2), 0.0);
-    vector<int> hotspot_nodes;
-    for (int i = 0; i < grid.numNodes(); ++i) {
-        double x = grid.x(i), y = grid.y(i);
-        if (isWall(x, y)) {
-            coeff[i] = pow(wn / (1 + (aa + 1i * bb)), 2);
-        } else {
-            coeff[i] = pow(wn, 2);
-        }
-        if (isHotspot(x, y)) {
-            hotspot_nodes.push_back(i);
-        }
-    }
-
-    // Convert coefficient to a diagonal matrix
-    SparseMatrix<double> C(grid.numNodes(), grid.numNodes());
-    for (int i = 0; i < grid.numNodes(); ++i) {
-        C.insert(i, i) = coeff[i];
-    }
-
-    RobinBC2D robinBC(k, grid, 0, 1);
-
-    VectorXd RHS = VectorXd::Zero(grid.numNodes());
-    for (int idx : hotspot_nodes) {
-        RHS(idx) = -L_total.row(idx).sum();
-    }
-
-    VectorXd SOL = VectorXd::Zero(grid.numNodes());
 
 
     return 0;
