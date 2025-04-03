@@ -10,6 +10,7 @@ int main() {
     double b = 40.0; // east
     double c = 0.0; // south
     double d = 40.0; // north
+
 // Grid resolution
 int k = 2; //order of accuracy
 int m = 500; // grid points along x
@@ -35,7 +36,6 @@ mat wall = ( (X >= 10.0 && X <= 39.0 && Y >= 20.0 && Y <= 21.0) ||
 // 2D Staggered Grid
 vec xgrid = linspace(a, b, m + 2);
 vec ygrid = linspace(c, d, n + 2);
-
 mat X, Y;
 
 Util utils;
@@ -53,6 +53,30 @@ uvec freenodes =  regenspace<uvec>(0, (m+2) * (n+2) - 1);
 freenodes.shed_rows(ind);
 
 // Mimetic Laplacian Operator
-Laplacian2D L (k, m , dx, n, dy);
+Lap2D L (k, m , dx, n, dy);
+Lap2D.diag() += ce_vec;
 
+Lap2D =+ RobinBC2D(k, m, dx, n, dy, 0, 1);
+
+//RHS
+mat RHS = zeroes(m + 2, n + 2);
+RHS = vectorise(RHS);
+
+RHS -= Lap2D * HS_vec; // Modify due to source term
+
+// Solving Helmholtz
+vec SOL = zeroes((m+2) * (n+2), 1);
+SOL(freenodes) = solve(Lap2D(freenodes, freenodes), RHS(freenodes));
+SOL(ind).fill(1.0)
+
+// Convert back to 2D
+mat SOL2D = resphape(SOL, m + 2, n + 2);
+
+//Saving solution
+mat logSOL = log(abs(SOL2D));
+logSOL.save("Helmholtz_solution.csv, csv_ascii);
+
+return 0;
+
+}
 
