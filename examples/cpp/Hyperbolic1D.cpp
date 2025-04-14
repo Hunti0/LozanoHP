@@ -61,15 +61,6 @@ int main() {
     }
     outfile << endl << endl;
 
-    for (int i = 1; i <= steps; ++i) {
-        double current_time = i * dt;
-        
-        // Exact solution for comparison
-        VectorXd exact(m + 2);
-        for (int j = 0; j < m + 2; ++j) {
-            exact(j) = sin(2.0 * M_PI * (grid(j) - a * current_time));
-        }
-
         // Leapfrog time stepping with periodic BC
         VectorXd U3 = U + A * U2;
 
