@@ -78,7 +78,7 @@ int main() {
 
     // Plotting with Gnuplot
     ofstream gp("plot.gp");
-    gp << "set title 'Helmholtz Solution (log|u|)'\n";
+    gp << "set title 'Helmholtz Solution'\n";
     gp << "set xlabel 'X'\n";
     gp << "set ylabel 'Y'\n";
     gp << "set view map\n";
