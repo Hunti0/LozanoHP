@@ -99,7 +99,7 @@ int main() {
     gnuplot << "set output 'solution.png'\n";
     gnuplot << "set xlabel 'x'\n";
     gnuplot << "set ylabel 'u(x,t)'\n";
-    gnuplot << "set title 'Advection Equation Solution'\n";
+    gnuplot << "set title 'Advection Equation '\n";
     gnuplot << "set key right top\n";
     gnuplot << "plot 'solution.dat' index 0 u 1:2 w l title 'Initial', \\\n";
     gnuplot << "     'solution.dat' index 1 u 1:2 w l title 'Numerical t=0.2', \\\n";
