@@ -8,14 +8,14 @@
 
 ## Description
 
-MOLE is a high-quality (C++ & MATLAB/Octave) library that implements 
-high-order mimetic operators to solve partial differential equations. 
-It provides discrete analogs of the most common vector calculus operators: 
-Gradient, Divergence, Laplacian, Bilaplacian, and Curl. These operators (highly sparse matrices) act 
-on staggered grids (uniform, non-uniform, curvilinear) and satisfy local and 
+MOLE is a high-quality (C++ & MATLAB/Octave) library that implements
+high-order mimetic operators to solve partial differential equations.
+It provides discrete analogs of the most common vector calculus operators:
+Gradient, Divergence, Laplacian, Bilaplacian, and Curl. These operators (highly sparse matrices) act
+on staggered grids (uniform, non-uniform, curvilinear) and satisfy local and
 global conservation laws.
 
-Mathematics is based on the work of [Corbino and Castillo][corbino-paper]. 
+Mathematics is based on the work of [Corbino and Castillo][corbino-paper].
 However, the user may find helpful previous publications, such as [Castillo and Grone][castillo-paper],
 in which similar operators were derived using a matrix analysis approach.
 
@@ -73,13 +73,13 @@ sudo yum install cmake openblas-devel eigen3-devel
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/csrc-sdsu/mole.git  
-   cd mole  
+   git clone https://github.com/csrc-sdsu/mole.git
+   cd mole
    ```
 
 2. Build the library:
    ```bash
-   mkdir build && cd build  
+   mkdir build && cd build
    cmake ..
    make
    ```
@@ -102,27 +102,27 @@ sudo yum install cmake openblas-devel eigen3-devel
 
 ## Testing
 
-### C++ 
+Run from the `build` directory:
+
+### C++
 
 A suite of four automatic tests that verify MOLE's installation and dependencies. These tests run automatically during the C++ library construction.
 
-Run from the `build` directory:
 ```bash
 make run_tests
 ```
 
-### MATLAB/Octave 
+### MATLAB/Octave
 
 MATLAB/Octave equivalent of the C++ test suite. We recommend running these tests before using MOLE to ensure proper setup.
 
-Run from the `tests/matlab`:
 ```matlab
-run_tests
+make run_matlab_tests
 ```
 
 ## Examples
 
-### C++ 
+### C++
 
 Four self-contained, well-documented examples demonstrating typical PDE solutions. These are automatically built with `make` and serve as an excellent starting point for C++ users.
 
@@ -141,7 +141,7 @@ MOLE comes with comprehensive documentation:
 
 ## Licensing
 
-MOLE is distributed under a GNU General Public License; please refer to the _LICENSE_ 
+MOLE is distributed under a GNU General Public License; please refer to the _LICENSE_
 file for more details.
 
 ## Community Guidelines
@@ -157,7 +157,7 @@ Please refer to our [Contribution Guidelines][contrib-guide] for more details.
 
 ## Citations
 
-Please cite our work if you use MOLE in your research or software. 
+Please cite our work if you use MOLE in your research or software.
 Citations are helpful for the continued development and maintenance of the library.
 
 ## Gallery
@@ -183,8 +183,8 @@ Now, some cool pictures obtained with MOLE:
 [license-link]: https://www.gnu.org/licenses/gpl-3.0
 [build-badge]: https://img.shields.io/github/actions/workflow/status/csrc-sdsu/mole/cmake.yml?branch=master&label=Build
 [build-link]: https://github.com/csrc-sdsu/mole/actions
-[docs-badge]: https://img.shields.io/badge/docs-latest-brightgreen.svg
-[docs-link]: https://csrc-sdsu.github.io/mole/build/html/
+[docs-badge]: https://readthedocs.org/projects/mole-docs/badge/?version=latest
+[docs-link]: https://mole-docs.readthedocs.io/en/latest/
 [corbino-paper]: https://doi.org/10.1016/j.cam.2019.06.042
 [castillo-paper]: https://doi.org/10.1137/S0895479801398025
 [doc-guide]: https://github.com/csrc-sdsu/mole/blob/master/doc/sphinx/README.md
