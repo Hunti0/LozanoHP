@@ -19,8 +19,8 @@ int main() {
     double dt = dx / abs(a); // CFL time step
     int steps = static_cast<int>(t / dt);
 
-    mat Div = D(k, m, dx);
-    mat Inter = I(m, 0.5);
+    Divergence  D(k, m, dx);
+    Interpol  I(m, 0.5);
 
     // Grid definition: staggered grid with ghost points
     vec grid(m + 2);
@@ -32,10 +32,10 @@ int main() {
     grid(m + 1) = east;
 
     // Apply periodic boundary conditions to Div
-    Div(0, 1) = 1.0 / (2.0 * dx);
-    Div(0, m) = -1.0 / (2.0 * dx);
-    Div(m + 1, 1) = 1.0 / (2.0 * dx);
-    Div(m + 1, m) = -1.0 / (2.0 * dx);
+    D(0, 1) = 1.0 / (2.0 * dx);
+    D(0, m) = -1.0 / (2.0 * dx);
+    D(m + 1, 1) = 1.0 / (2.0 * dx);
+    D(m + 1, m) = -1.0 / (2.0 * dx);
 
     mat A = -a * dt * 2.0 * Div * Inter;
 
