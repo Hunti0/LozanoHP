@@ -35,7 +35,7 @@ int main() {
     vec ygrid = linspace(c, d, n + 2);
     mat X, Y;
 
-    Util utils;
+    Utils utils;
     utils.mechgrid(xgrid, ygrid, X, Y);
 
     // Define the Walls using element-wise logic
@@ -59,14 +59,14 @@ int main() {
     freenodes.shed_rows(ind);
 
     // Mimetic Laplacian
-    Lap2D L(k, m, dx, n, dy);
-    L.diag() += ce_vec;
+    mat Lap2D =  L(k, m, dx, n, dy);
+    Lap2D.diag() += ce_vec;
 
-    L += RobinBC2D(k, m, dx, n, dy, 0, 1); // Robin boundary conditions
+    Lap2D += RobinBC(k, m, dx, n, dy, 0, 1); // Robin boundary conditions
 
     // Right-hand side
     cx_vec RHS = zeros<cx_vec>((m + 2) * (n + 2));
-    RHS -= L * HS_vec;
+    RHS -= Lap2D * HS_vec;
 
     // Solution
     cx_vec SOL = zeros<cx_vec>((m + 2) * (n + 2));
