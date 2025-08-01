@@ -1,8 +1,6 @@
-
 #include <iostream>
 #include <armadillo>
 #include <cmath>
-
 #include "mole.h"
 #include <vector>
 
@@ -10,20 +8,24 @@ using namespace arma;
 using std::cout;
 using std::endl;
 
+// Analytic solution
 double exact_u(double x, double y) {
     const double lambda = 1.0;
     return std::exp(lambda * (x + y) / 2.0) / (std::exp(lambda) - 1.0);
 }
 
+// RHS
 double rhs_f(double x, double y) {
     const double lambda = 1.0;
     return (lambda * lambda) * std::exp(lambda * (x + y) / 2.0) / (2.0 * (std::exp(lambda) - 1.0));
+    
 }
 
 int main() {
-    std::vector<u32> Ns = {10, 20, 40, 80};
+    std::vector<u32> Ns = {10, 20, 40, 80}; 
     u16 k = 2; 
-    cout << "Grid Size\tL2 Error\tRate" << endl;
+
+    cout << "Grid Size\tMean Square\tRate" << endl;
     double prev = 0.0;
 
     for (size_t ni = 0; ni < Ns.size(); ++ni) {
@@ -31,10 +33,10 @@ int main() {
         double Lx = 1.0, Ly = 1.0;
         double dx = Lx / (m + 1), dy = Ly / (n + 1);
 
-        vec x = linspace(0.0, Lx, m + 2);
-        vec y = linspace(0.0, Ly, n + 2);
+        vec x = linspace(0.0, Lx, m + 2); // (m+2) node coordinates in x
+        vec y = linspace(0.0, Ly, n + 2); // (n+2) node coordinates in y
 
-        // Build analytic solution and RHS on grid
+        // Build analytic solution and RHS on grid 
         vec uex((m+2)*(n+2)), f((m+2)*(n+2));
         for (u32 i = 0; i < m + 2; ++i)
             for (u32 j = 0; j < n + 2; ++j) {
@@ -43,32 +45,27 @@ int main() {
                 f(idx)   = rhs_f(x(i), y(j));
             }
 
-        // Assemble Laplacian operator
         Laplacian L(k, m, n, dx, dy);
         sp_mat Amat = static_cast<sp_mat>(L);
 
-        // Reaction term
+        // Robin BC parameters 
         const double lambda = 1.0;
-        for (u32 idx = 0; idx < (m+2)*(n+2); ++idx)
-            Amat(idx, idx) += lambda;
-
-        // Robin boundary condition parameters
         const double alpha = -std::exp(lambda);
         const double beta  = (std::exp(lambda) - 1.0) / lambda;
         sp_mat BCmat = static_cast<sp_mat>(
             RobinBC(k, m, dx, n, dy, alpha, beta));
         Amat = Amat + BCmat;
 
-
+        // Solve
         vec sol = spsolve(Amat, f);
 
-        // Compute global L2 error
-        double err = norm(sol - uex, 2) / norm(uex, 2);
+        // Compute Mean Square Error
+        double mean_square = norm(sol - uex, 2) * std::sqrt(dx * dy);
 
-        cout << m << "x" << n << "\t" << err;
-        if (ni > 0) cout << "\t" << std::log2(prev / err);
+        cout << m << "x" << n << "\t" << mean_square;
+        if (ni > 0) cout << "\t" << std::log2(prev / mean_square);
         cout << endl;
-        prev = err;
+        prev = mean_square;
     }
     return 0;
 }
