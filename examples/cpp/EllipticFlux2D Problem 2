@@ -1,73 +1,97 @@
 #include <iostream>
 #include <armadillo>
 #include <cmath>
-
-#include "mole.h"
 #include <vector>
 
-using namespace arma;
+#include "mole.h"
+
+namespace {
+constexpr double kLambda   = 1.0;
+constexpr double kDomainX  = 1.0;
+constexpr double kDomainY  = 1.0;
+}  // namespace
+
+using arma::vec;
+using arma::sp_mat;
+using arma::spsolve;
 using std::cout;
 using std::endl;
 
-double exact_u(double x, double y) {
-    const double lambda = 1.0;
-    return std::exp(lambda * (x + y) / 2.0) / (std::exp(lambda) - 1.0);
+// Manufactured exact solution
+double ExactSolution(double x, double y) {
+    return std::exp(kLambda * (x + y) / 2.0) / (std::exp(kLambda) - 1.0);
 }
 
-double rhs_f(double x, double y) {
-    const double lambda = 1.0;
-    return (lambda * lambda) * std::exp(lambda * (x + y) / 2.0) / (2.0 * (std::exp(lambda) - 1.0));
+// Corresponding RHS (keep consistent with the operator/sign used)
+double RightHandSide(double x, double y) {
+    return (kLambda * kLambda) *
+           std::exp(kLambda * (x + y) / 2.0) /
+           (2.0 * (std::exp(kLambda) - 1.0));
 }
 
 int main() {
-    std::vector<u32> Ns = {10, 20, 40, 80};
-    u16 k = 2; 
+    std::vector<u32> grid_sizes = {10, 20, 40, 80};
+    constexpr u16 kOrder = 2;
+
     cout << "Grid Size\tL2 Error\tRate" << endl;
-    double prev = 0.0;
+    double previous_error = 0.0;
 
-    for (size_t ni = 0; ni < Ns.size(); ++ni) {
-        u32 m = Ns[ni], n = Ns[ni];
-        double Lx = 1.0, Ly = 1.0;
-        double dx = Lx / (m + 1), dy = Ly / (n + 1);
+    for (size_t refinement = 0; refinement < grid_sizes.size(); ++refinement) {
+        const u32 m = grid_sizes[refinement]; // cells in x
+        const u32 n = grid_sizes[refinement]; // cells in y
 
-        vec x = linspace(0.0, Lx, m + 2);
-        vec y = linspace(0.0, Ly, n + 2);
+        const double dx = kDomainX / (m + 1);
+        const double dy = kDomainY / (n + 1);
 
-        // Build analytic solution and RHS on grid
-        vec uex((m+2)*(n+2)), f((m+2)*(n+2));
-        for (u32 i = 0; i < m + 2; ++i)
-            for (u32 j = 0; j < n + 2; ++j) {
-                u32 idx = i * (n + 2) + j;
-                uex(idx) = exact_u(x(i), y(j));
-                f(idx)   = rhs_f(x(i), y(j));
+        vec x_coords = arma::linspace(0.0, kDomainX, m + 2);
+        vec y_coords = arma::linspace(0.0, kDomainY, n + 2);
+
+        const u32 N = (m + 2) * (n + 2);
+
+        // Build analytic solution and RHS using a single running index
+        vec u_exact(N, arma::fill::none);
+        vec rhs_vector(N, arma::fill::none);
+
+        u32 idx = 0; // column-major walk: i is fastest
+        for (u32 j = 0; j < n + 2; ++j) {
+            for (u32 i = 0; i < m + 2; ++i, ++idx) {
+                const double x = x_coords(i);
+                const double y = y_coords(j);
+                u_exact(idx)    = ExactSolution(x, y);
+                rhs_vector(idx) = RightHandSide(x, y);
             }
+        }
 
-        // Assemble Laplacian operator
-        Laplacian L(k, m, n, dx, dy);
-        sp_mat Amat = static_cast<sp_mat>(L);
+        // Assemble system matrix (2-D Laplacian)
+        Laplacian laplacian(kOrder, m, n, dx, dy);
+        sp_mat system_matrix = static_cast<sp_mat>(laplacian);
 
-        // Add reaction term
-        const double lambda = 1.0;
-        for (u32 idx = 0; idx < (m+2)*(n+2); ++idx)
-            Amat(idx, idx) += lambda;
+        // Add reaction term: +lambda * I
+        for (u32 d = 0; d < N; ++d) {
+            system_matrix(d, d) += kLambda;
+        }
 
-        // Robin boundary condition parameters
-        const double alpha = -std::exp(lambda);
-        const double beta  = (std::exp(lambda) - 1.0) / lambda;
-        sp_mat BCmat = static_cast<sp_mat>(
-            RobinBC(k, m, dx, n, dy, alpha, beta));
-        Amat = Amat + BCmat;
+        // Robin boundary conditions (homogeneous): alpha*u + beta*du/dn = 0
+        const double alpha = -std::exp(kLambda);
+        const double beta  = (std::exp(kLambda) - 1.0) / kLambda;
+        sp_mat robin_bc = static_cast<sp_mat>(RobinBC(kOrder, m, dx, n, dy, alpha, beta));
+        system_matrix += robin_bc;
 
+        // Solve linear system
+        vec u_numeric = spsolve(system_matrix, rhs_vector);
 
-        vec sol = spsolve(Amat, f);
+        // Relative L2 error
+        double relative_l2_error =
+            arma::norm(u_numeric - u_exact, 2) / arma::norm(u_exact, 2);
 
-        // Compute global L2 error
-        double err = norm(sol - uex, 2) / norm(uex, 2);
-
-        cout << m << "x" << n << "\t" << err;
-        if (ni > 0) cout << "\t" << std::log2(prev / err);
+        cout << m << "x" << n << "\t"
+             << relative_l2_error;
+        if (refinement > 0) {
+            cout << "\t" << std::log2(previous_error / relative_l2_error);
+        }
         cout << endl;
-        prev = err;
+
+        previous_error = relative_l2_error;
     }
     return 0;
 }
