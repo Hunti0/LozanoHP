@@ -1,71 +1,116 @@
+
 #include <iostream>
 #include <armadillo>
-#include <cmath>
-#include "mole.h"
 #include <vector>
+#include <cmath>
 
-using namespace arma;
-using std::cout;
-using std::endl;
+#include "mole.h"     
+#include "Flux3D.h"   
 
-// Analytic solution
-double exact_u(double x, double y) {
-    const double lambda = 1.0;
-    return std::exp(lambda * (x + y) / 2.0) / (std::exp(lambda) - 1.0);
+namespace {
+constexpr double Lx = 1.0;
+constexpr double Ly = 1.0;
+constexpr double kLambda = 1.0; 
+
+inline double U_exact(double x, double y) {
+    return std::exp(kLambda*(x + y)/2.0) / (std::exp(kLambda) - 1.0);
+}
+// Δu = (λ^2/2) u for this u_exact
+inline double F_rhs(double x, double y) {
+    return 0.5 * kLambda * kLambda * U_exact(x, y);
 }
 
-// RHS
-double rhs_f(double x, double y) {
-    const double lambda = 1.0;
-    return (lambda * lambda) * std::exp(lambda * (x + y) / 2.0) / (2.0 * (std::exp(lambda) - 1.0));
-    
+// i-fast linear index on (m+2) x (n+2) CC grid
+inline arma::uword idx(u32 i, u32 j, u32 m) { return j*(m+2) + i; }
+} // namespace
+
+using arma::sp_mat;
+using arma::vec;
+
+// K = I (fill once; ghosts copied from neighbors for safety)
+static void fill_tensor_identity_2D(u32 m, u32 n, TensorField<2>& K)
+{
+    const arma::uword N = (m + 2) * (n + 2);
+    K.xx.set_size(N); K.yy.set_size(N);
+    K.xy.set_size(N); K.yx.set_size(N);
+
+    K.xx.ones();   // 1 everywhere
+    K.yy.ones();
+    K.xy.zeros();  // 0 everywhere
+    K.yx.zeros();
 }
 
 int main() {
-    std::vector<u32> Ns = {10, 20, 40, 80}; 
-    u16 k = 2; 
 
-    cout << "Grid Size\tMean Square\tRate" << endl;
-    double prev = 0.0;
+    const std::vector<u32> Mvals = {10, 20, 40, 80};
+    constexpr u16 kOrder = 2;
 
-    for (size_t ni = 0; ni < Ns.size(); ++ni) {
-        u32 m = Ns[ni], n = Ns[ni];
-        double Lx = 1.0, Ly = 1.0;
-        double dx = Lx / (m + 1), dy = Ly / (n + 1);
+    std::cout << "Grid Size\tL2 Rel Error\tRate\n";
+    double prev_err = 0.0;
 
-        vec x = linspace(0.0, Lx, m + 2); // (m+2) node coordinates in x
-        vec y = linspace(0.0, Ly, n + 2); // (n+2) node coordinates in y
+    for (size_t r = 0; r < Mvals.size(); ++r) {
+        const u32 m = Mvals[r], n = Mvals[r];
+        const double dx = Lx / double(m);
+        const double dy = Ly / double(n);
 
-        // Build analytic solution and RHS on grid 
-        vec uex((m+2)*(n+2)), f((m+2)*(n+2));
-        for (u32 i = 0; i < m + 2; ++i)
-            for (u32 j = 0; j < n + 2; ++j) {
-                u32 idx = i * (n + 2) + j;
-                uex(idx) = exact_u(x(i), y(j));
-                f(idx)   = rhs_f(x(i), y(j));
-            }
+        // CC positions INCLUDING ghosts at ±0.5 h
+        arma::vec Xcc(m + 2), Ycc(n + 2);
+        Xcc(0) = -0.5 * dx;            Xcc(m + 1) = 1.0 + 0.5 * dx;
+        for (u32 i = 1; i <= m; ++i) Xcc(i) = (i - 0.5) * dx;
+        Ycc(0) = -0.5 * dy;            Ycc(n + 1) = 1.0 + 0.5 * dy;
+        for (u32 j = 1; j <= n; ++j) Ycc(j) = (j - 0.5) * dy;
 
-        Laplacian L(k, m, n, dx, dy);
-        sp_mat Amat = static_cast<sp_mat>(L);
+        const arma::uword N = (m + 2) * (n + 2);
 
-        // Robin BC parameters 
-        const double lambda = 1.0;
-        const double alpha = -std::exp(lambda);
-        const double beta  = (std::exp(lambda) - 1.0) / lambda;
-        sp_mat BCmat = static_cast<sp_mat>(
-            RobinBC(k, m, dx, n, dy, alpha, beta));
-        Amat = Amat + BCmat;
+        // K = I everywhere
+        TensorField<2> K;
+        fill_tensor_identity_2D(m, n, K);
+
+        // A = D * F * G with identity K (reduces to mimetic Laplacian)
+        FluxND<2> flux(K);
+        sp_mat A = flux.diffusion(kOrder, m, n, dx, dy);
+
+        // Enforce Dirichlet via Robin (a=1, b=0) using exact boundary values.
+        sp_mat B = static_cast<sp_mat>(RobinBC(kOrder, m, dx, n, dy, 1.0, 0.0));
+        sp_mat System = A + B;
+
+        // Interior forcing f(x,y) at interior centers; zeros on boundary rows.
+        vec rhs(N, arma::fill::zeros);
+        for (u32 j = 1; j <= n; ++j)
+            for (u32 i = 1; i <= m; ++i)
+                rhs(idx(i,j,m)) = F_rhs(Xcc(i), Ycc(j));
+
+        // Dirichlet injection via B * U_bc (boundary-only vector)
+        vec Ubc(N, arma::fill::zeros);
+        for (u32 j = 1; j <= n; ++j) {
+            Ubc(idx(0,      j, m)) = U_exact(0.0, Ycc(j));  // x=0
+            Ubc(idx(m + 1,  j, m)) = U_exact(1.0, Ycc(j));  // x=1
+        }
+        for (u32 i = 1; i <= m; ++i) {
+            Ubc(idx(i, 0,      m)) = U_exact(Xcc(i), 0.0);  // y=0
+            Ubc(idx(i, n + 1,  m)) = U_exact(Xcc(i), 1.0);  // y=1
+        }
+        rhs += B * Ubc;
 
         // Solve
-        vec sol = spsolve(Amat, f);
+        vec U = arma::spsolve(System, rhs);
 
-        // Compute Mean Square Error
-        double mean_square = norm(sol - uex, 2) * std::sqrt(dx * dy);
+        // Area-weighted relative L2 error on interior cells
+        double err2 = 0.0, ref2 = 0.0;
+        for (u32 j = 1; j <= n; ++j)
+            for (u32 i = 1; i <= m; ++i) {
+                const double ue = U_exact(Xcc(i), Ycc(j));
+                const double du = U(idx(i,j,m)) - ue;
+                err2 += du * du;
+                ref2 += ue * ue;
+            }
+        const double relL2 = std::sqrt(err2 * dx * dy) / std::sqrt(ref2 * dx * dy);
 
-        cout << m << "x" << n << "\t" << mean_square;
-        if (ni > 0) cout << "\t" << std::log2(prev / mean_square);
-        cout << endl;
-        prev = mean_square;
+        std::cout << m << "x" << n << "\t" << relL2;
+        if (r > 0) std::cout << "\t" << std::log2(prev_err / relL2);
+        std::cout << "\n";
+
+        prev_err = relL2;
     }
     return 0;
 }
